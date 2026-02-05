@@ -14,6 +14,9 @@
         .code-block { font-family: 'Courier New', Courier, monospace; background-color: #1f2937; color: #e5e7eb; border-radius: 0.375rem; padding: 1rem; overflow-x: auto; white-space: pre; }
         .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
         @media (min-width: 768px) { .chart-container { height: 350px; } }
+        /* Simple fade in animation */
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -24,6 +27,7 @@
          Structure: Dashboard/Wizard Hybrid.
          Why: The source content is procedural (how to connect, how to run jobs). A linear text guide is hard to use repeatedly. A "Command Generator" approach allows users to input their needs (Time, GPU type, Partition) and get the exact code snippet to copy. 
          Sections: 
+         0. "Start Here": (NEW) Intro text, context (Research/Homework), and workflow explanation cards.
          1. "Connect": First-time setup and SSH command generation.
          2. "Interactive Builder": Dynamic form generating 'srun' commands.
          3. "Batch Composer": Form generating 'sbatch' scripts.
@@ -33,10 +37,11 @@
     -->
 
     <!-- Visualization & Content Choices:
-         1. Interactive Builder (Goal: Inform/Change): User adjusts sliders/dropdowns -> updates code block text. (Vanilla JS)
-         2. Resource Radar (Goal: Compare): Chart.js Radar chart comparing 'Interactive' vs 'Batch' vs 'GPU' partitions based on attributes (Time limits, Resource power) inferred from guide context.
-         3. Batch Script Preview (Goal: Inform): Real-time text update of a .sh file based on form inputs.
-         4. Hardware Capability (Goal: Inform): Chart.js Bar chart showing available GPU types mentioned in the text.
+         1. Intro Workflow Cards (Goal: Inform/Organize): Clickable cards using Unicode icons to distinguish between "Interactive" (Live) and "Batch" (Scheduled) workflows.
+         2. Interactive Builder (Goal: Inform/Change): User adjusts sliders/dropdowns -> updates code block text. (Vanilla JS)
+         3. Resource Radar (Goal: Compare): Chart.js Radar chart comparing 'Interactive' vs 'Batch' vs 'GPU' partitions.
+         4. Batch Script Preview (Goal: Inform): Real-time text update of a .sh file based on form inputs.
+         5. Hardware Capability (Goal: Inform): Chart.js Bar chart showing available GPU types.
          CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
     -->
 
@@ -48,7 +53,8 @@
                     <span class="text-2xl font-bold text-slate-800 tracking-tight">Tufts HPC <span class="text-blue-600 font-light">Commander</span></span>
                 </div>
                 <div class="hidden sm:flex space-x-8 items-center" id="nav-container">
-                    <button onclick="switchTab('connect')" class="nav-btn tab-active px-3 py-2 text-sm">Connect</button>
+                    <button onclick="switchTab('intro')" class="nav-btn tab-active px-3 py-2 text-sm">Start Here</button>
+                    <button onclick="switchTab('connect')" class="nav-btn tab-inactive px-3 py-2 text-sm">Connect</button>
                     <button onclick="switchTab('interactive')" class="nav-btn tab-inactive px-3 py-2 text-sm">Interactive</button>
                     <button onclick="switchTab('batch')" class="nav-btn tab-inactive px-3 py-2 text-sm">Batch Jobs</button>
                     <button onclick="switchTab('remote')" class="nav-btn tab-inactive px-3 py-2 text-sm">Jupyter/VSCode</button>
@@ -65,6 +71,7 @@
         <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden sm:hidden bg-white border-t border-gray-200">
             <div class="px-2 pt-2 pb-3 space-y-1">
+                <button onclick="switchTab('intro')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Start Here</button>
                 <button onclick="switchTab('connect')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Connect</button>
                 <button onclick="switchTab('interactive')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Interactive</button>
                 <button onclick="switchTab('batch')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Batch Jobs</button>
@@ -87,8 +94,86 @@
     <!-- Main Content Area -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
 
+        <!-- Section: Intro / Start Here (NEW) -->
+        <section id="intro" class="view-section animate-fade-in block">
+            <div class="text-center mb-12">
+                <h1 class="text-4xl font-bold text-slate-900 mb-4">Welcome to Tufts High Performance Computing</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    A shared research supercomputer designed for <strong>computational homework</strong>, <strong>senior projects</strong>, and <strong>academic research</strong> that exceeds the capabilities of a personal laptop.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <!-- What is it? -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-bold text-gray-800 mb-3">🛠️ What is the Cluster?</h2>
+                    <p class="text-gray-600 mb-4">
+                        The cluster is a collection of powerful networked computers ("nodes") that you can log into remotely. It provides:
+                    </p>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-start"><span class="mr-2 text-blue-500">✓</span> <strong>High-End GPUs:</strong> Access NVIDIA A100s & V100s for Deep Learning.</li>
+                        <li class="flex items-start"><span class="mr-2 text-blue-500">✓</span> <strong>Large Memory:</strong> Run jobs requiring 64GB+ of RAM.</li>
+                        <li class="flex items-start"><span class="mr-2 text-blue-500">✓</span> <strong>Storage:</strong> Shared space for large datasets and model weights.</li>
+                    </ul>
+                </div>
+                <!-- Use Cases -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-bold text-gray-800 mb-3">📚 Common Use Cases</h2>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-start"><span class="mr-2">🎓</span> <strong>Coursework:</strong> Completing assignments for ML/DL courses (e.g., L3D).</li>
+                        <li class="flex items-start"><span class="mr-2">🔬</span> <strong>Research:</strong> Running simulations, training models, or analyzing genomics data.</li>
+                        <li class="flex items-start"><span class="mr-2">📂</span> <strong>Big Data:</strong> Processing datasets too large to fit on your local drive.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Choose Your Workflow</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Workflow: Interactive -->
+                <button onclick="switchTab('interactive')" class="group text-left bg-white hover:bg-blue-50 border-2 border-transparent hover:border-blue-200 p-6 rounded-xl shadow-sm transition-all duration-200">
+                    <div class="flex items-center mb-4">
+                        <span class="text-4xl mr-4 bg-blue-100 p-3 rounded-lg">⚡</span>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 group-hover:text-blue-700">Interactive Mode</h3>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-100 px-2 py-1 rounded">Best for Debugging</span>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 text-sm">
+                        "Like borrowing a super-computer for a few hours."
+                    </p>
+                    <p class="text-gray-500 text-xs mt-2">
+                        You stay logged in, type commands, and see results immediately. Use this for writing code, testing scripts, making plots, or using Jupyter Notebooks.
+                    </p>
+                </button>
+
+                <!-- Workflow: Batch -->
+                <button onclick="switchTab('batch')" class="group text-left bg-white hover:bg-green-50 border-2 border-transparent hover:border-green-200 p-6 rounded-xl shadow-sm transition-all duration-200">
+                    <div class="flex items-center mb-4">
+                        <span class="text-4xl mr-4 bg-green-100 p-3 rounded-lg">📋</span>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 group-hover:text-green-700">Batch Submission</h3>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-green-600 bg-green-100 px-2 py-1 rounded">Best for Production</span>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 text-sm">
+                        "Like giving a task list to a robot."
+                    </p>
+                    <p class="text-gray-500 text-xs mt-2">
+                        You write a script (`.sh` file) and submit it to the queue. The system runs it when resources are free (even while you sleep). Use this for 12+ hour training runs.
+                    </p>
+                </button>
+            </div>
+
+            <div class="mt-12 text-center">
+                <p class="text-gray-600 mb-4">First time here?</p>
+                <button onclick="switchTab('connect')" class="bg-slate-800 text-white px-8 py-3 rounded-lg font-medium hover:bg-slate-700 transition shadow-lg">
+                    Step 1: Get Connected &rarr;
+                </button>
+            </div>
+        </section>
+
         <!-- Section: Connect -->
-        <section id="connect" class="view-section animate-fade-in block">
+        <section id="connect" class="view-section hidden">
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900">Get Connected</h1>
                 <p class="mt-2 text-gray-600 max-w-2xl">
