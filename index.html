@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tufts HPC Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #1d4ed8; font-weight: 600; }
+        .tab-inactive { color: #6b7280; hover:color: #374151; }
+        .code-block { font-family: 'Courier New', Courier, monospace; background-color: #1f2937; color: #e5e7eb; border-radius: 0.375rem; padding: 1rem; overflow-x: auto; white-space: pre; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Chosen Palette: Slate & Blue - A clean, professional academic/technical palette using warm neutrals (slate) for structure and accessible blues for actions/highlights. -->
+    
+    <!-- Application Structure Plan: 
+         Structure: Dashboard/Wizard Hybrid.
+         Why: The source content is procedural (how to connect, how to run jobs). A linear text guide is hard to use repeatedly. A "Command Generator" approach allows users to input their needs (Time, GPU type, Partition) and get the exact code snippet to copy. 
+         Sections: 
+         1. "Connect": First-time setup and SSH command generation.
+         2. "Interactive Builder": Dynamic form generating 'srun' commands.
+         3. "Batch Composer": Form generating 'sbatch' scripts.
+         4. "Remote IDEs": Tabbed guide for Jupyter/VSCode tunneling.
+         5. "Environment": Cheatsheet for Conda.
+         6. "Resources": Visual overview of hardware/partitions via Chart.js.
+    -->
+
+    <!-- Visualization & Content Choices:
+         1. Interactive Builder (Goal: Inform/Change): User adjusts sliders/dropdowns -> updates code block text. (Vanilla JS)
+         2. Resource Radar (Goal: Compare): Chart.js Radar chart comparing 'Interactive' vs 'Batch' vs 'GPU' partitions based on attributes (Time limits, Resource power) inferred from guide context.
+         3. Batch Script Preview (Goal: Inform): Real-time text update of a .sh file based on form inputs.
+         4. Hardware Capability (Goal: Inform): Chart.js Bar chart showing available GPU types mentioned in the text.
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold text-slate-800 tracking-tight">Tufts HPC <span class="text-blue-600 font-light">Commander</span></span>
+                </div>
+                <div class="hidden sm:flex space-x-8 items-center" id="nav-container">
+                    <button onclick="switchTab('connect')" class="nav-btn tab-active px-3 py-2 text-sm">Connect</button>
+                    <button onclick="switchTab('interactive')" class="nav-btn tab-inactive px-3 py-2 text-sm">Interactive</button>
+                    <button onclick="switchTab('batch')" class="nav-btn tab-inactive px-3 py-2 text-sm">Batch Jobs</button>
+                    <button onclick="switchTab('remote')" class="nav-btn tab-inactive px-3 py-2 text-sm">Jupyter/VSCode</button>
+                    <button onclick="switchTab('env')" class="nav-btn tab-inactive px-3 py-2 text-sm">Software</button>
+                </div>
+                <!-- Mobile menu button placeholder -->
+                <div class="flex items-center sm:hidden">
+                    <button onclick="toggleMobileMenu()" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                        <span class="text-2xl">☰</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden sm:hidden bg-white border-t border-gray-200">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <button onclick="switchTab('connect')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Connect</button>
+                <button onclick="switchTab('interactive')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Interactive</button>
+                <button onclick="switchTab('batch')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Batch Jobs</button>
+                <button onclick="switchTab('remote')" class="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Remote Tools</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Global User Settings -->
+    <div class="bg-blue-50 border-b border-blue-100">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap items-center gap-4">
+            <span class="text-sm font-medium text-blue-800">Global Settings:</span>
+            <div class="flex items-center gap-2">
+                <label for="global-username" class="text-xs text-blue-600 uppercase font-bold">Your UTLN:</label>
+                <input type="text" id="global-username" placeholder="e.g. amurphy02" class="text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 px-2 py-1" oninput="updateAllSnippets()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- Section: Connect -->
+        <section id="connect" class="view-section animate-fade-in block">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Get Connected</h1>
+                <p class="mt-2 text-gray-600 max-w-2xl">
+                    Before running any code, you need to establish a connection to the cluster. This section guides you through the prerequisites and the initial login process.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Checklist -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Pre-Flight Checklist</h2>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                <input id="vpn-check" type="checkbox" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                            </div>
+                            <div class="ml-3 text-sm">
+                                <label for="vpn-check" class="font-medium text-gray-700">Tufts VPN Connected?</label>
+                                <p class="text-gray-500">Required if you are off-campus. <a href="https://access.tufts.edu/vpn" target="_blank" class="text-blue-600 hover:underline">View VPN Instructions &rarr;</a></p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex items-center h-5">
+                                <input id="account-check" type="checkbox" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                            </div>
+                            <div class="ml-3 text-sm">
+                                <label for="account-check" class="font-medium text-gray-700">Tufts UTLN & Password</label>
+                                <p class="text-gray-500">You need your standard Tufts credentials (e.g., amurphy02).</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SSH Generator -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Login Command</h2>
+                    <p class="text-sm text-gray-600 mb-4">The "Login Node" is your lobby. Use it to edit files or submit jobs, but <strong>do not run heavy computation</strong> here.</p>
+                    
+                    <div class="bg-slate-900 rounded-lg p-4 relative group">
+                        <button onclick="copyToClipboard('ssh-command')" class="absolute top-2 right-2 text-gray-400 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-xs">Copy</button>
+                        <code id="ssh-command" class="text-green-400 font-mono text-sm break-all">ssh <span class="username-placeholder">username</span>@login.pax.tufts.edu</code>
+                    </div>
+                    <p class="mt-4 text-xs text-gray-500 text-center">Enter your Tufts password when prompted in your terminal.</p>
+                </div>
+            </div>
+
+            <!-- Contextual Note -->
+            <div class="mt-8 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                <div class="flex">
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Support:</strong> For technical issues (VPN, quota, SLURM errors), contact <code class="bg-blue-100 px-1 rounded">tts-research@tufts.edu</code>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Interactive Builder -->
+        <section id="interactive" class="view-section hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Interactive Session Builder</h1>
+                <p class="mt-2 text-gray-600 max-w-3xl">
+                    Generate the <code>srun</code> command to request a compute node. This allows you to work interactively (typing commands and seeing results) on powerful hardware, rather than the login node.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Configuration Form -->
+                <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+                    <h3 class="font-semibold text-gray-800 border-b pb-2">Resource Settings</h3>
+                    
+                    <!-- Partition Selector -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Partition Type</label>
+                        <select id="srun-partition" class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50" onchange="updateSrun()">
+                            <option value="interactive">Interactive (CPU Only)</option>
+                            <option value="gpu">GPU (Standard)</option>
+                            <option value="preempt">Preempt (High-End/Risky)</option>
+                        </select>
+                        <p id="part-desc" class="text-xs text-gray-500 mt-1">Best for testing and CPU-based tasks.</p>
+                    </div>
+
+                    <!-- GPU Selector (Conditional) -->
+                    <div id="gpu-options" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">GPU Model</label>
+                        <select id="srun-gpu" class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 bg-gray-50" onchange="updateSrun()">
+                            <option value="generic">Any GPU (Generic)</option>
+                            <option value="a100">NVIDIA A100</option>
+                            <option value="v100">NVIDIA V100</option>
+                            <option value="rtx_a6000">RTX A6000</option>
+                        </select>
+                    </div>
+
+                    <!-- Time & Mem -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Duration (Hours): <span id="time-display" class="font-bold text-blue-600">2</span></label>
+                        <input type="range" id="srun-time" min="1" max="12" value="2" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="updateSrun()">
+                        <div class="flex justify-between text-xs text-gray-400"><span>1h</span><span>12h</span></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Memory (GB): <span id="mem-display" class="font-bold text-blue-600">4</span></label>
+                        <input type="range" id="srun-mem" min="2" max="64" step="2" value="4" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="updateSrun()">
+                        <div class="flex justify-between text-xs text-gray-400"><span>2GB</span><span>64GB</span></div>
+                    </div>
+                </div>
+
+                <!-- Preview & Viz -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Code Preview -->
+                    <div class="bg-slate-800 rounded-xl shadow-lg p-6 relative">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Generated Command (Terminal)</h3>
+                        <div class="code-block bg-slate-900 border border-slate-700 text-green-400 p-4 rounded text-lg">
+                            <span id="srun-output">srun -p interactive -t 0-02:00 --mem 4000 --pty bash</span>
+                        </div>
+                        <button onclick="copyToClipboard('srun-output')" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition">
+                            Copy Command
+                        </button>
+                    </div>
+
+                    <!-- Chart: Partition Comparison -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="font-semibold text-gray-800 mb-4">Partition Capabilities Comparison</h3>
+                        <div class="chart-container">
+                            <canvas id="partitionChart"></canvas>
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-2">
+                            Comparing resource profiles. <strong>Preempt</strong> offers high power but can be interrupted. <strong>Interactive</strong> is stable but limited.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Batch Jobs -->
+        <section id="batch" class="view-section hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Batch Job Composer</h1>
+                <p class="mt-2 text-gray-600">
+                    For long-running tasks, create a script and submit it to the scheduler (`sbatch`). The system runs it when resources are available.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Form -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                    <h2 class="text-lg font-semibold text-gray-800">Job Details</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Job Name</label>
+                            <input type="text" id="batch-name" value="my_experiment" class="w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm p-2" oninput="updateBatch()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Script Name</label>
+                            <input type="text" id="batch-script-name" value="my_script.py" class="w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm p-2" oninput="updateBatch()">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase">Partition</label>
+                        <select id="batch-partition" class="w-full mt-1 border-gray-300 rounded-md shadow-sm text-sm p-2" onchange="updateBatch()">
+                            <option value="batch">Batch (CPU)</option>
+                            <option value="gpu">GPU</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Time (HH:MM:SS)</label>
+                            <input type="text" id="batch-time" value="12:00:00" class="w-full mt-1 border-gray-300 rounded-md shadow-sm text-sm p-2" oninput="updateBatch()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Memory</label>
+                            <input type="text" id="batch-mem" value="16G" class="w-full mt-1 border-gray-300 rounded-md shadow-sm text-sm p-2" oninput="updateBatch()">
+                        </div>
+                    </div>
+
+                    <div id="batch-gpu-row" class="hidden">
+                        <label class="block text-xs font-medium text-gray-500 uppercase">GPU Config</label>
+                        <select id="batch-gpu" class="w-full mt-1 border-gray-300 rounded-md shadow-sm text-sm p-2" onchange="updateBatch()">
+                            <option value="1">1 Generic GPU</option>
+                            <option value="a100:1">1 A100</option>
+                            <option value="v100:1">1 V100</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-4 border-t">
+                         <h3 class="text-sm font-semibold text-gray-800 mb-2">Workflow Commands</h3>
+                         <div class="bg-gray-50 p-2 rounded text-xs font-mono space-y-2">
+                             <div class="flex justify-between">
+                                <span>Submit:</span>
+                                <span class="text-blue-600">sbatch my_job.sh</span>
+                             </div>
+                             <div class="flex justify-between">
+                                <span>Monitor:</span>
+                                <span class="text-blue-600">squeue -u <span class="username-placeholder">username</span></span>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Script Preview -->
+                <div class="bg-slate-900 rounded-xl shadow-lg p-6 flex flex-col h-full">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">my_job.sh</h3>
+                        <button onclick="copyToClipboard('batch-code')" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded">Copy</button>
+                    </div>
+                    <pre id="batch-code" class="flex-grow font-mono text-sm text-gray-300 overflow-auto whitespace-pre">#!/bin/bash
+#SBATCH --job-name=my_experiment
+#SBATCH --partition=batch
+#SBATCH --time=12:00:00
+#SBATCH --mem=16G
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
+
+# Load modules
+module load anaconda/2021.05
+source activate my_env
+
+# Run code
+python my_script.py</pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Remote Tools -->
+        <section id="remote" class="view-section hidden">
+             <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Remote Development</h1>
+                <p class="mt-2 text-gray-600">
+                    Use graphical tools like Jupyter Notebooks or VS Code running on the cluster but displayed on your laptop.
+                </p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="border-b border-gray-200 flex bg-gray-50">
+                    <button onclick="switchRemoteTab('jupyter')" id="tab-jupyter" class="flex-1 py-4 text-center font-medium text-blue-600 border-b-2 border-blue-600 bg-white">Jupyter Notebook (Tunneling)</button>
+                    <button onclick="switchRemoteTab('vscode')" id="tab-vscode" class="flex-1 py-4 text-center font-medium text-gray-500 hover:text-gray-700">VS Code (Remote-SSH)</button>
+                </div>
+
+                <div class="p-6">
+                    <!-- Jupyter Content -->
+                    <div id="content-jupyter" class="space-y-6">
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="border-r border-gray-100 pr-6">
+                                <h3 class="font-bold text-gray-800 mb-2">1. On Cluster (Terminal A)</h3>
+                                <p class="text-sm text-gray-600 mb-2">Start an interactive session and launch Jupyter.</p>
+                                <div class="bg-slate-800 text-gray-300 p-3 rounded text-xs font-mono mb-2">
+                                    ssh <span class="username-placeholder">user</span>@login.pax.tufts.edu<br>
+                                    srun -p interactive -t 02:00:00 --mem 4G --pty bash<br>
+                                    <span class="text-yellow-400"># Note the node name! (e.g., p1cmp076)</span><br>
+                                    module load anaconda/2021.05<br>
+                                    source activate my_env<br>
+                                    jupyter notebook --no-browser --port=6789
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 mb-2">2. On Local Machine (Terminal B)</h3>
+                                <p class="text-sm text-gray-600 mb-2">Create the SSH tunnel to the specific node.</p>
+                                <div class="bg-slate-800 text-gray-300 p-3 rounded text-xs font-mono mb-4">
+                                    ssh -L 6789:localhost:6789 <span class="username-placeholder">user</span>@login.pax.tufts.edu ssh -L 6789:localhost:6789 <span class="text-yellow-400 font-bold">&lt;NODE_NAME&gt;</span>
+                                </div>
+                                <h3 class="font-bold text-gray-800 mb-2">3. Browser</h3>
+                                <p class="text-sm text-gray-600">Go to <a href="http://localhost:6789" class="text-blue-600 underline">http://localhost:6789</a></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VSCode Content -->
+                    <div id="content-vscode" class="hidden space-y-6">
+                         <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-4">
+                             <p class="text-sm text-blue-800">Requires the <strong>Remote - SSH</strong> extension by Microsoft installed in VS Code.</p>
+                         </div>
+                         <h3 class="font-bold text-gray-800">SSH Config Setup</h3>
+                         <p class="text-sm text-gray-600 mb-2">Add this to your local SSH config file (<code>~/.ssh/config</code>). Replace <code>&lt;node-name&gt;</code> with the compute node from your active <code>srun</code> session.</p>
+                         <div class="bg-slate-800 text-gray-300 p-4 rounded text-sm font-mono relative">
+                             <button onclick="copyToClipboard('vscode-config')" class="absolute top-2 right-2 text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded">Copy</button>
+<pre id="vscode-config">Host tufts_cluster
+    Hostname login.pax.tufts.edu
+    User <span class="username-placeholder">username</span>
+
+Host cluster_node
+    Hostname &lt;node-name&gt; 
+    User <span class="username-placeholder">username</span>
+    ProxyJump tufts_cluster</pre>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Software & Environment -->
+        <section id="env" class="view-section hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Software & Hardware</h1>
+                <p class="mt-2 text-gray-600">
+                    Manage your software environment with Conda and check available hardware resources.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Environment Cheat Sheet -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Conda Workflow</h2>
+                    <div class="space-y-4">
+                        <div class="group">
+                            <h4 class="text-sm font-bold text-gray-700">1. Load Module</h4>
+                            <code class="block bg-gray-100 p-2 rounded text-sm text-gray-800 mt-1 cursor-pointer hover:bg-blue-50" onclick="copyText(this)">module load anaconda/2021.05</code>
+                        </div>
+                        <div class="group">
+                            <h4 class="text-sm font-bold text-gray-700">2. Create Environment</h4>
+                            <code class="block bg-gray-100 p-2 rounded text-sm text-gray-800 mt-1 cursor-pointer hover:bg-blue-50" onclick="copyText(this)">conda create -n my_research_env python=3.9</code>
+                        </div>
+                        <div class="group">
+                            <h4 class="text-sm font-bold text-gray-700">3. Activate</h4>
+                            <code class="block bg-gray-100 p-2 rounded text-sm text-gray-800 mt-1 cursor-pointer hover:bg-blue-50" onclick="copyText(this)">source activate my_research_env</code>
+                        </div>
+                        <div class="group">
+                            <h4 class="text-sm font-bold text-gray-700">4. Install Packages</h4>
+                            <code class="block bg-gray-100 p-2 rounded text-sm text-gray-800 mt-1 cursor-pointer hover:bg-blue-50" onclick="copyText(this)">pip install numpy pandas torch</code>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4 italic">* Click code blocks to copy.</p>
+                </div>
+
+                <!-- Hardware Viz -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Hardware Availability</h2>
+                    <p class="text-sm text-gray-600 mb-4">
+                        GPU resources available in the cluster. Check live status with <code>sinfo</code>.
+                    </p>
+                    <div class="chart-container">
+                        <canvas id="hardwareChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+             <!-- File Transfer -->
+             <div class="mt-8 bg-indigo-50 rounded-xl border border-indigo-100 p-6">
+                <h2 class="text-lg font-bold text-indigo-900 mb-2">File Transfer (SCP)</h2>
+                <p class="text-sm text-indigo-700 mb-3">Copy files from cluster to local machine.</p>
+                <code class="block bg-white border border-indigo-200 p-3 rounded text-sm font-mono text-indigo-900 break-all">
+                    scp <span class="username-placeholder">user</span>@login.pax.tufts.edu:/cluster/home/<span class="username-placeholder">user</span>/results.csv ./
+                </code>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-gray-500 text-sm">Tufts High Performance Computing Guide | Generated Interactive Interface</p>
+        </div>
+    </footer>
+
+    <script>
+        // State
+        const state = {
+            username: 'username',
+            srun: {
+                partition: 'interactive',
+                gpu: 'generic',
+                time: 2,
+                mem: 4
+            },
+            batch: {
+                jobName: 'my_experiment',
+                scriptName: 'my_script.py',
+                partition: 'batch',
+                time: '12:00:00',
+                mem: '16G',
+                gpu: '1'
+            }
+        };
+
+        // Navigation Logic
+        function switchTab(tabId) {
+            // Update Nav Styles
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('tab-active', 'text-blue-600');
+                btn.classList.add('tab-inactive', 'text-gray-500');
+            });
+            const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            if(activeBtn) {
+                activeBtn.classList.add('tab-active', 'text-blue-600');
+                activeBtn.classList.remove('tab-inactive', 'text-gray-500');
+            }
+
+            // Show/Hide Sections
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            // Mobile menu hide
+            document.getElementById('mobile-menu').classList.add('hidden');
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        }
+
+        function switchRemoteTab(subTab) {
+            document.getElementById('content-jupyter').classList.add('hidden');
+            document.getElementById('content-vscode').classList.add('hidden');
+            
+            document.getElementById('tab-jupyter').classList.remove('border-blue-600', 'text-blue-600', 'bg-white');
+            document.getElementById('tab-vscode').classList.remove('border-blue-600', 'text-blue-600', 'bg-white');
+            document.getElementById('tab-jupyter').classList.add('text-gray-500');
+            document.getElementById('tab-vscode').classList.add('text-gray-500');
+
+            document.getElementById('content-' + subTab).classList.remove('hidden');
+            document.getElementById('tab-' + subTab).classList.add('border-blue-600', 'text-blue-600', 'bg-white');
+            document.getElementById('tab-' + subTab).classList.remove('text-gray-500');
+        }
+
+        // Logic: Update Username placeholders
+        function updateAllSnippets() {
+            const inputUser = document.getElementById('global-username').value;
+            state.username = inputUser || 'username';
+            
+            document.querySelectorAll('.username-placeholder').forEach(el => {
+                el.textContent = state.username;
+            });
+            updateBatch(); // Update batch output too
+        }
+
+        // Logic: Interactive Builder
+        function updateSrun() {
+            state.srun.partition = document.getElementById('srun-partition').value;
+            state.srun.gpu = document.getElementById('srun-gpu').value;
+            state.srun.time = document.getElementById('srun-time').value;
+            state.srun.mem = document.getElementById('srun-mem').value;
+
+            // Update UI displays
+            document.getElementById('time-display').textContent = state.srun.time;
+            document.getElementById('mem-display').textContent = state.srun.mem;
+
+            // Handle Partition Logic
+            const partDesc = document.getElementById('part-desc');
+            const gpuOptions = document.getElementById('gpu-options');
+            
+            if (state.srun.partition === 'interactive') {
+                partDesc.textContent = "CPU-only. Ideal for code testing, file management, and light scripts.";
+                gpuOptions.classList.add('hidden');
+            } else if (state.srun.partition === 'gpu') {
+                partDesc.textContent = "Standard GPU access. Use for ML/DL training.";
+                gpuOptions.classList.remove('hidden');
+            } else if (state.srun.partition === 'preempt') {
+                partDesc.textContent = "Access to high-end owner nodes. WARNING: Job may be killed instantly.";
+                gpuOptions.classList.remove('hidden');
+            }
+
+            // Build Command string
+            let cmd = `srun -p ${state.srun.partition}`;
+            
+            if (state.srun.partition !== 'interactive') {
+                let gpuStr = '--gres=gpu:1';
+                if (state.srun.gpu !== 'generic') {
+                    gpuStr = `--gres=gpu:${state.srun.gpu}:1`;
+                }
+                cmd += ` ${gpuStr}`;
+            }
+
+            // Format time 0-HH:00
+            const padTime = (num) => num.toString().padStart(2, '0');
+            cmd += ` -t 0-${padTime(state.srun.time)}:00`;
+            cmd += ` --mem ${state.srun.mem}000`; // assuming GB input, req MB
+            cmd += ` --pty bash`;
+
+            document.getElementById('srun-output').textContent = cmd;
+        }
+
+        // Logic: Batch Builder
+        function updateBatch() {
+            state.batch.jobName = document.getElementById('batch-name').value;
+            state.batch.scriptName = document.getElementById('batch-script-name').value;
+            state.batch.partition = document.getElementById('batch-partition').value;
+            state.batch.time = document.getElementById('batch-time').value;
+            state.batch.mem = document.getElementById('batch-mem').value;
+            state.batch.gpu = document.getElementById('batch-gpu').value;
+
+            const gpuRow = document.getElementById('batch-gpu-row');
+            if (state.batch.partition === 'gpu') {
+                gpuRow.classList.remove('hidden');
+            } else {
+                gpuRow.classList.add('hidden');
+            }
+
+            let script = `#!/bin/bash
+#SBATCH --job-name=${state.batch.jobName}
+#SBATCH --partition=${state.batch.partition}`;
+
+            if (state.batch.partition === 'gpu') {
+                let gres = '#SBATCH --gres=gpu:1';
+                if (state.batch.gpu === 'a100:1') gres = '#SBATCH --gres=gpu:a100:1';
+                if (state.batch.gpu === 'v100:1') gres = '#SBATCH --gres=gpu:v100:1';
+                script += `\n${gres}`;
+            }
+
+            script += `\n#SBATCH --time=${state.batch.time}
+#SBATCH --mem=${state.batch.mem}
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
+
+# Load modules
+module load anaconda/2021.05
+source activate my_env
+
+# Run code
+python ${state.batch.scriptName}`;
+
+            document.getElementById('batch-code').textContent = script;
+        }
+
+        // Utilities
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            });
+        }
+        
+        function copyText(el) {
+            navigator.clipboard.writeText(el.innerText).then(() => {
+                // visual feedback
+                const orig = el.style.backgroundColor;
+                el.style.backgroundColor = '#dbeafe'; // blue-100
+                setTimeout(() => el.style.backgroundColor = '', 200);
+            });
+        }
+
+        // Charts
+        document.addEventListener('DOMContentLoaded', () => {
+            // Radar Chart: Partition Capabilities
+            const ctxPart = document.getElementById('partitionChart').getContext('2d');
+            new Chart(ctxPart, {
+                type: 'radar',
+                data: {
+                    labels: ['Max Time', 'Availability', 'Compute Power', 'Risk of Kill', 'Setup Ease'],
+                    datasets: [
+                        {
+                            label: 'Interactive',
+                            data: [2, 9, 3, 0, 9],
+                            fill: true,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgb(54, 162, 235)',
+                            pointBackgroundColor: 'rgb(54, 162, 235)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgb(54, 162, 235)'
+                        },
+                        {
+                            label: 'Preempt (GPU)',
+                            data: [8, 5, 10, 9, 5],
+                            fill: true,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgb(255, 99, 132)',
+                            pointBackgroundColor: 'rgb(255, 99, 132)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgb(255, 99, 132)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    elements: { line: { borderWidth: 3 } },
+                    scales: {
+                        r: {
+                            angleLines: { display: true },
+                            suggestedMin: 0,
+                            suggestedMax: 10
+                        }
+                    }
+                }
+            });
+
+            // Bar Chart: Hardware Types
+            const ctxHard = document.getElementById('hardwareChart').getContext('2d');
+            new Chart(ctxHard, {
+                type: 'bar',
+                data: {
+                    labels: ['A100 (High Performance)', 'V100 (Standard)', 'RTX A6000', 'Generic'],
+                    datasets: [{
+                        label: 'Relative Availability',
+                        data: [80, 60, 40, 100], // Conceptual values based on "Common" vs "Specific" text
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(201, 203, 207, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgb(75, 192, 192)',
+                            'rgb(54, 162, 235)',
+                            'rgb(153, 102, 255)',
+                            'rgb(201, 203, 207)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            display: false,
+                            title: { display: true, text: 'Availability Index' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return "Request via --gres=gpu:" + context.label.split(' ')[0].toLowerCase().replace('a100', 'a100:1').replace('v100', 'v100:1').replace('rtx', 'rtx_a6000:1').replace('generic', '1');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
