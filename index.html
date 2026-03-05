@@ -214,7 +214,7 @@
                     
                     <div class="bg-slate-900 rounded-lg p-4 relative group">
                         <button onclick="copyToClipboard('ssh-command')" class="absolute top-2 right-2 text-gray-400 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2 py-1 text-xs">Copy</button>
-                        <code id="ssh-command" class="text-green-400 font-mono text-sm break-all">ssh <span class="username-placeholder">username</span>@login.pax.tufts.edu</code>
+                        <code id="ssh-command" class="text-green-400 font-mono text-sm break-all">ssh <span class="username-placeholder">username</span>@login-prod.pax.tufts.edu</code>
                     </div>
                     <p class="mt-4 text-xs text-gray-500 text-center">Enter your Tufts password when prompted in your terminal.</p>
                 </div>
@@ -424,7 +424,7 @@ python my_script.py</pre>
                                 <h3 class="font-bold text-gray-800 mb-2">1. On Cluster (Terminal A)</h3>
                                 <p class="text-sm text-gray-600 mb-2">Start an interactive session and launch Jupyter.</p>
                                 <div class="bg-slate-800 text-gray-300 p-3 rounded text-xs font-mono mb-2">
-                                    ssh <span class="username-placeholder">user</span>@login.pax.tufts.edu<br>
+                                    ssh <span class="username-placeholder">user</span>@login-prod.pax.tufts.edu<br>
                                     srun -p interactive -t 02:00:00 --mem 4G --pty bash<br>
                                     <span class="text-yellow-400"># Note the node name! (e.g., p1cmp076)</span><br>
                                     module load anaconda/2021.05<br>
@@ -436,7 +436,7 @@ python my_script.py</pre>
                                 <h3 class="font-bold text-gray-800 mb-2">2. On Local Machine (Terminal B)</h3>
                                 <p class="text-sm text-gray-600 mb-2">Create the SSH tunnel to the specific node.</p>
                                 <div class="bg-slate-800 text-gray-300 p-3 rounded text-xs font-mono mb-4">
-                                    ssh -L 6789:localhost:6789 <span class="username-placeholder">user</span>@login.pax.tufts.edu ssh -L 6789:localhost:6789 <span class="text-yellow-400 font-bold">&lt;NODE_NAME&gt;</span>
+                                    ssh -L 6789:localhost:6789 <span class="username-placeholder">user</span>@login-prod.pax.tufts.edu ssh -L 6789:localhost:6789 <span class="text-yellow-400 font-bold">&lt;NODE_NAME&gt;</span>
                                 </div>
                                 <h3 class="font-bold text-gray-800 mb-2">3. Browser</h3>
                                 <p class="text-sm text-gray-600">Go to <a href="http://localhost:6789" class="text-blue-600 underline">http://localhost:6789</a></p>
@@ -454,7 +454,7 @@ python my_script.py</pre>
                          <div class="bg-slate-800 text-gray-300 p-4 rounded text-sm font-mono relative">
                              <button onclick="copyToClipboard('vscode-config')" class="absolute top-2 right-2 text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded">Copy</button>
 <pre id="vscode-config">Host tufts_cluster
-    Hostname login.pax.tufts.edu
+    Hostname login-prod.pax.tufts.edu
     User <span class="username-placeholder">username</span>
 
 Host cluster_node
@@ -518,7 +518,7 @@ Host cluster_node
                 <h2 class="text-lg font-bold text-indigo-900 mb-2">File Transfer (SCP)</h2>
                 <p class="text-sm text-indigo-700 mb-3">Copy files from cluster to local machine.</p>
                 <code class="block bg-white border border-indigo-200 p-3 rounded text-sm font-mono text-indigo-900 break-all">
-                    scp <span class="username-placeholder">user</span>@login.pax.tufts.edu:/cluster/home/<span class="username-placeholder">user</span>/results.csv ./
+                    scp <span class="username-placeholder">user</span>@xfer.pax.tufts.edu:/cluster/home/<span class="username-placeholder">user</span>/results.csv ./
                 </code>
             </div>
         </section>
